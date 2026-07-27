@@ -76,7 +76,7 @@
             transition: width 1s ease-in-out;
         }
 
-        /* Modo TV (Aumenta tudo se a tela for muito grande) */
+        /* Modo TV */
         @media (min-width: 1600px) {
             body { padding: 50px; }
             .board, .controls { max-width: 1200px; }
@@ -96,21 +96,35 @@
         <span class="last-update" id="lastUpdate">Atualizando...</span>
     </div>
 
-    <div class="board" id="rankingBoard">
-        <!-- Os cartões serão injetados aqui via JavaScript -->
-    </div>
+    <div class="board" id="rankingBoard"></div>
 
     <script>
-        // COLOQUE O LINK DO SEU GOOGLE APPS SCRIPT AQUI
+        // COLOQUE O SEU LINK DO GOOGLE APPS SCRIPT AQUI DENTRO DAS ASPAS
         const API_URL = "https://script.google.com/macros/s/AKfycbwX-Z8NJ7bMAcAMecOB3FeRaza9NWANM9f5GZDy68jE6iFIxLp6KJ2GHxkAIal6Ghgm/exec"; 
         
         let corretoresData = [];
+        let maxPointsGlobal = 1;
 
         async function loadData() {
             try {
                 const response = await fetch(API_URL);
                 const data = await response.json();
+                
+                // Grava a medalha, posição real e define o maior ponto globalmente antes da pesquisa
+                data.forEach((corretor, index) => {
+                    corretor.posicaoReal = index + 1;
+                    if (corretor.posicaoReal === 1) corretor.medalha = '🥇';
+                    else if (corretor.posicaoReal === 2) corretor.medalha = '🥈';
+                    else if (corretor.posicaoReal === 3) corretor.medalha = '🥉';
+                    else corretor.medalha = corretor.posicaoReal;
+                });
+
                 corretoresData = data;
+                
+                if (data.length > 0) {
+                    maxPointsGlobal = data[0].Pontos > 0 ? data[0].Pontos : 1;
+                }
+                
                 renderBoard(data);
                 
                 const now = new Date();
@@ -123,26 +137,21 @@
 
         function renderBoard(data) {
             const board = document.getElementById('rankingBoard');
-            board.innerHTML = ''; // Limpa o quadro
+            board.innerHTML = ''; 
             
-            if (data.length === 0) return;
+            if (data.length === 0) {
+                board.innerHTML = "<p>Nenhum corretor encontrado.</p>";
+                return;
+            }
 
-            // Pega a maior pontuação para calcular a porcentagem da barra de progresso
-            const maxPoints = data[0].Pontos > 0 ? data[0].Pontos : 1; 
-
-            data.forEach((corretor, index) => {
-                const rank = index + 1;
-                let medal = rank;
-                if (rank === 1) medal = '🥇';
-                if (rank === 2) medal = '🥈';
-                if (rank === 3) medal = '🥉';
-
-                const percentage = (corretor.Pontos / maxPoints) * 100;
+            data.forEach((corretor) => {
+                // Calcula a barra usando sempre o total do 1º lugar geral
+                const percentage = (corretor.Pontos / maxPointsGlobal) * 100;
 
                 const card = document.createElement('div');
                 card.className = 'card';
                 card.innerHTML = `
-                    <div class="rank">${medal}</div>
+                    <div class="rank">${corretor.medalha}</div>
                     <div class="info">
                         <div class="name">${corretor.Corretor}</div>
                         <div class="points">${corretor.Pontos} pts</div>
@@ -161,10 +170,8 @@
             renderBoard(filtered);
         }
 
-        // Carrega ao abrir a página
+        // Carrega ao abrir a página e atualiza a cada 5 minutos
         loadData();
-
-        // Atualização automática a cada 5 minutos (300.000 ms)
         setInterval(loadData, 300000);
     </script>
 </body>
